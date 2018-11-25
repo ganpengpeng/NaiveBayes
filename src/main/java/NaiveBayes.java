@@ -10,7 +10,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 public class NaiveBayes {
     public static void main(String[] args) throws Exception{
         Configuration conf = new Configuration();
-        Job job = Job.getInstance(conf, "word count");
+        Job job = Job.getInstance(conf, "naivebayes");
         job.setJarByClass(NaiveBayes.class);
         job.setMapperClass(MyMapper.class);
         job.setCombinerClass(MyReducer.class);

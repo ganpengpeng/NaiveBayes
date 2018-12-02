@@ -13,7 +13,9 @@ public class NaiveBayesTest {
             return;
         }
         Configuration conf = new Configuration();
-        conf.set("fs.defaultFS", "hdfs://localhost:8020");
+        if (System.getProperty("user.name").equals("peng")){
+            conf.set("fs.defaultFS", "hdfs://localhost:8020");
+        }
         NaiveBayesTest nbt = new NaiveBayesTest(conf, args[1] + "/trainResult");
         System.out.println(nbt.nb.docsTotalNum);
         System.out.println(nbt.nb.wordsNumByClass.get("USA").entrySet());

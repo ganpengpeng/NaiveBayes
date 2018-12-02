@@ -70,7 +70,9 @@ public class NaiveBayes {
             return;
         }
         Configuration conf = new Configuration();
-        conf.set("fs.defaultFS", "hdfs://localhost:8020");
+        if (System.getProperty("user.name").equals("peng")){
+            conf.set("fs.defaultFS", "hdfs://localhost:8020");
+        }
         NaiveBayes nb = new NaiveBayes(conf);
         nb.splitDataSet(new Path(args[0]));
         nb.calcPrior();
@@ -111,7 +113,7 @@ public class NaiveBayes {
         for (Map.Entry<String, ArrayList<String>> entry : this.classes.entrySet()) {
             //laplace smoothing
             double prior = (entry.getValue().size() + 1) /
-                (double) (this.docsTotalNum + this.classes.size());
+                    (double) (this.docsTotalNum + this.classes.size());
             this.prior.put(entry.getKey(), prior);
             logger.info("class: " + entry.getKey() + " prior: " + prior);
         }

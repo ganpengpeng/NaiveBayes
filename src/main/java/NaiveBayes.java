@@ -70,7 +70,7 @@ public class NaiveBayes {
             return;
         }
         Configuration conf = new Configuration();
-        if (System.getProperty("user.name").equals("peng")){
+        if (System.getProperty("user.name").equals("peng")) {
             conf.set("fs.defaultFS", "hdfs://localhost:8020");
         }
         NaiveBayes nb = new NaiveBayes(conf);
@@ -110,10 +110,11 @@ public class NaiveBayes {
          *  calculate prior of classes.
          *  I use laplace smoothing to deal with zero probability.
          */
-        for (Map.Entry<String, ArrayList<String>> entry : this.classes.entrySet()) {
+        for (Map.Entry<String, ArrayList<String>> entry :
+            this.classes.entrySet()) {
             //laplace smoothing
             double prior = (entry.getValue().size() + 1) /
-                    (double) (this.docsTotalNum + this.classes.size());
+                (double) (this.docsTotalNum + this.classes.size());
             this.prior.put(entry.getKey(), prior);
             logger.info("class: " + entry.getKey() + " prior: " + prior);
         }
@@ -130,8 +131,10 @@ public class NaiveBayes {
             job.setReducerClass(MyReducer.class);
             job.setOutputKeyClass(Text.class);
             job.setOutputValueClass(IntWritable.class);
-            FileInputFormat.setInputPaths(job, new Path(args[0] + "/" + className));
-            FileOutputFormat.setOutputPath(job, new Path(args[1] + "/" + className));
+            FileInputFormat.setInputPaths(job,
+                new Path(args[0] + "/" + className));
+            FileOutputFormat.setOutputPath(job,
+                new Path(args[1] + "/" + className));
             logger.info(job.waitForCompletion(true));
         }
     }
@@ -150,7 +153,8 @@ public class NaiveBayes {
         Map<String, Integer> wordsNumMap = new HashMap<>();
         int totalNum = 0;
         FileSystem fs = FileSystem.get(this.conf);
-        FileStatus[] fileStatus = fs.listStatus(jobResultByClass, path -> path.getName().startsWith("part-r"));
+        FileStatus[] fileStatus = fs.listStatus(jobResultByClass,
+            path -> path.getName().startsWith("part-r"));
         for (FileStatus status : fileStatus) {
             FSDataInputStream in = fs.open(status.getPath());
             InputStreamReader isr = new InputStreamReader(in);
@@ -174,9 +178,44 @@ public class NaiveBayes {
         this.wordsNumByClass.put(jobResultByClass.getName(), wordsNumMap);
     }
 
+    String classify(Path doc) throws Exception {
+        FileSystem fs = FileSystem.get(this.conf);
+        FSDataInputStream is = fs.open(doc);
+        InputStreamReader isr = new InputStreamReader(is);
+        BufferedReader reader = new BufferedReader(isr);
+        Map<String, Double> similarity = new HashMap<>(this.prior);
+        for (Map.Entry<String, Double> entry : similarity.entrySet()) {
+            similarity.put(entry.getKey(), Math.log(entry.getValue()));
+        }
+        String word;
+        while ((word = reader.readLine()) != null) {
+            for (Map.Entry<String, Map<String, Integer>> entry :
+                this.wordsNumByClass.entrySet()) {
+                double sim = (entry.getValue().get(word) + 1) / (double)
+                    (this.totalWordsNumByClass.get(entry.getKey()) +
+                        entry.getValue().size());
+                similarity.computeIfPresent(entry.getKey(),
+                    (key, oldValue) -> oldValue + Math.log(sim));
+            }
+        }
+        ArrayList<Map.Entry<String, Double>> list =
+            new ArrayList<>(similarity.entrySet());
+        String result = list.get(0).getKey();
+        Double sim = list.get(0).getValue();
+        for (int i = 1; i < list.size(); i++) {
+            Double aSim = list.get(i).getValue();
+            if (aSim > sim) {
+                sim = aSim;
+                result = list.get(i).getKey();
+            }
+        }
+        return result;
+    }
+
     private void save(String[] args) throws Exception {
         FileSystem fs = FileSystem.get(this.conf);
-        FSDataOutputStream out = fs.create(new Path(args[1] + "/trainResult"));
+        FSDataOutputStream out = fs.create(
+            new Path(args[1] + "/trainResult"));
         ObjectOutputStream os = new ObjectOutputStream(out);
         os.writeObject(this.classes);
         os.writeObject(this.testFile);

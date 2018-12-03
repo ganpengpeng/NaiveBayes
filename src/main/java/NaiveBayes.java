@@ -86,7 +86,7 @@ public class NaiveBayes {
          *  split data set into train data and test data.
          *  randomly choose for 1/10 test and 9/10 train data.
          */
-        FileSystem fs = FileSystem.get(conf);
+        FileSystem fs = FileSystem.get(this.conf);
         FileStatus[] dirs = fs.listStatus(path);
         for (FileStatus dir : dirs) {
             FileStatus[] docs = fs.listStatus(dir.getPath());
@@ -115,7 +115,7 @@ public class NaiveBayes {
             //laplace smoothing
             double prior = (entry.getValue().size() + 1) /
                 (double) (this.docsTotalNum + this.classes.size());
-            this.prior.put(entry.getKey(), prior);
+            this.prior.put(entry.getKey(), Math.log(prior));
             logger.info("class: " + entry.getKey() + " prior: " + prior);
         }
     }
@@ -184,14 +184,14 @@ public class NaiveBayes {
         InputStreamReader isr = new InputStreamReader(is);
         BufferedReader reader = new BufferedReader(isr);
         Map<String, Double> similarity = new HashMap<>(this.prior);
-        for (Map.Entry<String, Double> entry : similarity.entrySet()) {
-            similarity.put(entry.getKey(), Math.log(entry.getValue()));
-        }
         String word;
         while ((word = reader.readLine()) != null) {
             for (Map.Entry<String, Map<String, Integer>> entry :
                 this.wordsNumByClass.entrySet()) {
-                double sim = (entry.getValue().get(word) + 1) / (double)
+                Integer wordCount = entry.getValue().get(word);
+                if (wordCount == null)
+                    wordCount = 0;
+                double sim = (wordCount + 1) / (double)
                     (this.totalWordsNumByClass.get(entry.getKey()) +
                         entry.getValue().size());
                 similarity.computeIfPresent(entry.getKey(),
@@ -226,4 +226,3 @@ public class NaiveBayes {
         os.close();
     }
 }
-

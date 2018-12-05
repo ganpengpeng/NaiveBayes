@@ -7,6 +7,8 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.log4j.Logger;
+import wordcount.WordCountMapper;
+import wordcount.WordCountReducer;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -126,9 +128,9 @@ public class NaiveBayes {
         for (String className : this.classes.keySet()) {
             Job job = Job.getInstance(this.conf, className);
             job.setJarByClass(NaiveBayes.class);
-            job.setMapperClass(MyMapper.class);
-            job.setCombinerClass(MyReducer.class);
-            job.setReducerClass(MyReducer.class);
+            job.setMapperClass(WordCountMapper.class);
+            job.setCombinerClass(WordCountReducer.class);
+            job.setReducerClass(WordCountReducer.class);
             job.setOutputKeyClass(Text.class);
             job.setOutputValueClass(IntWritable.class);
             FileInputFormat.setInputPaths(job,

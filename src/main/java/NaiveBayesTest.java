@@ -28,7 +28,7 @@ public class NaiveBayesTest {
         if (System.getProperty("user.name").equals("peng")) {
             conf.set("fs.defaultFS", "hdfs://localhost:8020");
         }
-        NaiveBayesTest nbt = new NaiveBayesTest(conf, args[1] + "/trainResult");
+        NaiveBayesTest nbt = new NaiveBayesTest(conf, args[1] + "/Classifier");
         nbt.test(args[0]);
         for (double v : nbt.macroAverage()) {
             System.out.println(v);
@@ -76,29 +76,33 @@ public class NaiveBayesTest {
 
     private double[] macroAverage() {
         double precision = 0, recall = 0;
-        for (Integer[][] matrix : classMatrix.values()) {
+        for (Integer[][] matrix : this.classMatrix.values()) {
             System.out.println(matrix[0][0] + ", " + matrix[0][1]
                 + ", " + matrix[1][0] + ", " + matrix[1][1]);
             precision += matrix[0][0] / (double) (matrix[0][0] + matrix[0][1]);
             recall += matrix[0][0] / (double) (matrix[0][0] + matrix[1][0]);
         }
+        precision /= this.classMatrix.size();
+        recall /= this.classMatrix.size();
         double f1 = 2 * precision * recall / (precision + recall);
+        System.out.println(precision + ", " + recall + ", " + f1);
         return new double[]{precision, recall, f1};
     }
 
     private double[] microAverage() {
         Integer[][] matrix = {{0, 0}, {0, 0}};
         for (Integer[][] value : this.classMatrix.values()) {
-            System.out.println(value[0][0] + ", " + value[0][1]
-                + ", " + value[1][0] + ", " + value[1][1]);
             matrix[0][0] += value[0][0];
             matrix[0][1] += value[0][1];
             matrix[1][0] += value[1][0];
             matrix[1][1] += value[1][1];
         }
+        System.out.println("----"+matrix[0][0] + ", " + matrix[0][1]
+            + ", " + matrix[1][0] + ", " + matrix[1][1]);
         double precision = matrix[0][0] / (double) (matrix[0][0] + matrix[0][1]);
         double recall = matrix[0][0] / (double) (matrix[0][0] + matrix[1][0]);
         double f1 = 2 * precision * recall / (precision + recall);
+        System.out.println(precision + ", " + recall + ", " + f1);
         return new double[]{precision, recall, f1};
     }
 }

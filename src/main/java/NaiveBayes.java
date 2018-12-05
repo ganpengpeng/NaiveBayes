@@ -215,7 +215,7 @@ public class NaiveBayes {
     private void save(String[] args) throws Exception {
         FileSystem fs = FileSystem.get(this.conf);
         FSDataOutputStream out = fs.create(
-            new Path(args[1] + "/trainResult"));
+            new Path(args[1] + "/Classifier"));
         ObjectOutputStream os = new ObjectOutputStream(out);
         os.writeObject(this.classes);
         os.writeObject(this.testFile);

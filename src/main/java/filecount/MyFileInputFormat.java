@@ -1,8 +1,6 @@
 package filecount;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
@@ -12,9 +10,7 @@ import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 
 public class MyFileInputFormat extends FileInputFormat<Text, IntWritable> {
 
@@ -25,26 +21,29 @@ public class MyFileInputFormat extends FileInputFormat<Text, IntWritable> {
     }
 
     public static class MyReader extends RecordReader<Text, IntWritable> {
-        private BufferedReader in;
         private Text key = new Text();
         private IntWritable value = new IntWritable();
+        private Path filePath;
+        private boolean flag;
 
         public void initialize(InputSplit inputSplit, TaskAttemptContext context)
             throws IOException, InterruptedException {
             FileSplit split = (FileSplit) inputSplit;
             Configuration conf = context.getConfiguration();
-            Path path = split.getPath();
-            FileSystem fs = path.getFileSystem(conf);
-            FSDataInputStream fsInput = fs.open(path);
-            this.in = new BufferedReader(new InputStreamReader(fsInput));
+            this.filePath = split.getPath();
+            System.err.println(filePath);
         }
 
         public boolean nextKeyValue() throws IOException, InterruptedException {
-            String s = in.readLine();
-            if (s == null)
+            if (this.flag) {
+                this.key = null;
+                this.value = null;
                 return false;
-            this.key.set(s);
+            }
+            String className = filePath.getParent().getName();
+            this.key.set(className);
             this.value.set(1);
+            this.flag = true;
             return true;
         }
 
@@ -57,11 +56,11 @@ public class MyFileInputFormat extends FileInputFormat<Text, IntWritable> {
         }
 
         public float getProgress() throws IOException, InterruptedException {
-            return 0.5f;
+            return 0;
         }
 
         public void close() throws IOException {
-            in.close();
+
         }
     }
 }

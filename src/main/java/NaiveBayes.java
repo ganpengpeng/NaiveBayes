@@ -1,3 +1,4 @@
+import filecount.MyFileInputFormat;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.FileSystem;
@@ -7,6 +8,7 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.log4j.Logger;
+import wordcount.WordCount;
 import wordcount.WordCountMapper;
 import wordcount.WordCountReducer;
 
@@ -77,7 +79,7 @@ public class NaiveBayes {
         }
         NaiveBayes nb = new NaiveBayes(conf);
         nb.splitDataSet(new Path(args[0]));
-        nb.calcPrior();
+        nb.calcPrior(args);
         nb.startMRJob(args);
         nb.trainAllClasses(new Path(args[1]));
         nb.save(args);
@@ -107,19 +109,49 @@ public class NaiveBayes {
         }
     }
 
-    private void calcPrior() {
+    private void calcPrior(String[] args) throws IOException,
+        InterruptedException, ClassNotFoundException {
         /*
          *  calculate prior of classes.
          *  I use laplace smoothing to deal with zero probability.
          */
-        for (Map.Entry<String, ArrayList<String>> entry :
-            this.classes.entrySet()) {
-            //laplace smoothing
-            double prior = (entry.getValue().size() + 1) /
-                (double) (this.docsTotalNum + this.classes.size());
-            this.prior.put(entry.getKey(), Math.log(prior));
-            logger.info("class: " + entry.getKey() + " prior: " + prior);
+        Configuration conf = this.conf;
+        conf.set("mapreduce.input.fileinputformat.input.dir.recursive", "true");
+        Job job = Job.getInstance(this.conf, "filecount");
+        job.setJarByClass(NaiveBayes.class);
+        job.setMapperClass(WordCount.TokenizerMapper.class);
+        job.setCombinerClass(WordCount.IntSumReducer.class);
+        job.setReducerClass(WordCount.IntSumReducer.class);
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(IntWritable.class);
+        job.setInputFormatClass(MyFileInputFormat.class);
+        FileInputFormat.setInputPaths(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1] + "/filecount"));
+
+        Map<String, Integer> docNum = new HashMap<>();
+        int docTotalNum = 0;
+        if (job.waitForCompletion(true)) {
+            FileSystem fs = FileSystem.get(conf);
+            FSDataInputStream in = fs.open(
+                new Path(args[1] + "/filecount/part-r-00000"));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+            String s = reader.readLine();
+            while (s != null) {
+                String[] line = s.split("\\s");
+                docNum.put(line[0], Integer.valueOf(line[1]));
+                docTotalNum += Integer.valueOf(line[1]);
+                reader.readLine();
+            }
+        }else {
+            logger.info("waitForCompletion false!!!");
+            return;
         }
+        for (Map.Entry<String, Integer> entry : docNum.entrySet()) {
+            double prior = (entry.getValue() + 1) /
+                (double) (docTotalNum + docNum.size());
+            this.prior.put(entry.getKey(), Math.log(prior));
+        }
+        // TODO how to distinguish test file from train file
     }
 
     private void startMRJob(String[] args) throws Exception {

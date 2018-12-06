@@ -13,12 +13,13 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 import java.io.IOException;
-import java.util.StringTokenizer;
 
 public class WordCount {
 
     public static void main(String[] args) throws Exception {
         Configuration conf = new Configuration();
+        conf.set("fs.defaultFS", "hdfs://localhost:8020");
+        conf.set("mapreduce.input.fileinputformat.input.dir.recursive", "true");
         FileSystem.get(conf).delete(new Path(args[1]), true);
         Job job = Job.getInstance(conf, "mywordcount");
         job.setJarByClass(WordCount.class);
@@ -37,15 +38,10 @@ public class WordCount {
         extends Mapper<Text, IntWritable, Text, IntWritable> {
 
         private final static IntWritable one = new IntWritable(1);
-        private Text word = new Text();
 
         public void map(Text key, IntWritable value, Context context
         ) throws IOException, InterruptedException {
-            StringTokenizer itr = new StringTokenizer(key.toString());
-            while (itr.hasMoreTokens()) {
-                word.set(itr.nextToken());
-                context.write(word, one);
-            }
+            context.write(key, one);
         }
     }
 

@@ -41,6 +41,8 @@ public class MyFileInputFormat extends FileInputFormat<Text, IntWritable> {
 
         public boolean nextKeyValue() throws IOException, InterruptedException {
             String s = in.readLine();
+            if (s == null)
+                return false;
             this.key.set(s);
             this.value.set(1);
             return true;

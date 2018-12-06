@@ -2,3 +2,4 @@ NBCorpus
 target
 output
 *.log
+.idea

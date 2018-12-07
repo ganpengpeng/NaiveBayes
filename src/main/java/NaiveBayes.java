@@ -80,6 +80,7 @@ public class NaiveBayes {
         NaiveBayes nb = new NaiveBayes(conf);
         nb.splitDataSet(new Path(args[0]));
         nb.calcPrior(args);
+        System.err.println("-----finish-----");
         nb.startMRJob(args);
         nb.trainAllClasses(new Path(args[1]));
         nb.save(args);
@@ -117,6 +118,9 @@ public class NaiveBayes {
          */
         Configuration conf = this.conf;
         conf.set("mapreduce.input.fileinputformat.input.dir.recursive", "true");
+        Path output = new Path("filecount");
+        FileSystem fs = FileSystem.get(conf);
+        fs.delete(output, true);
         Job job = Job.getInstance(this.conf, "filecount");
         job.setJarByClass(NaiveBayes.class);
         job.setMapperClass(WordCount.TokenizerMapper.class);
@@ -126,23 +130,36 @@ public class NaiveBayes {
         job.setOutputValueClass(IntWritable.class);
         job.setInputFormatClass(MyFileInputFormat.class);
         FileInputFormat.setInputPaths(job, new Path(args[0]));
-        FileOutputFormat.setOutputPath(job, new Path(args[1] + "/filecount"));
-
+        FileOutputFormat.setOutputPath(job, output);
+        /*
+         *******************************************************
+         *  how to distinguish test file from train file?
+         *  As we know, the above job count every file in class directory,
+         *  but I do not divide test file from train file, so the return
+         *  value will be total number of documents of class. But what we
+         *  need is just the number of train files of each class.
+         *  I use a trick here to get the actual number of train files.
+         *  That is using total number to minus the number of test files
+         *  in this.testFile(NaiveBayes.testFile).
+         *  (Ps: using map reduce job will not always speed up our program!)
+         *******************************************************
+         */
         Map<String, Integer> docNum = new HashMap<>();
         int docTotalNum = 0;
         if (job.waitForCompletion(true)) {
-            FileSystem fs = FileSystem.get(conf);
-            FSDataInputStream in = fs.open(
-                new Path(args[1] + "/filecount/part-r-00000"));
+            FSDataInputStream in = fs.open(new Path("filecount/part-r-00000"));
             BufferedReader reader = new BufferedReader(new InputStreamReader(in));
             String s = reader.readLine();
             while (s != null) {
                 String[] line = s.split("\\s");
-                docNum.put(line[0], Integer.valueOf(line[1]));
-                docTotalNum += Integer.valueOf(line[1]);
-                reader.readLine();
+                Integer num = Integer.valueOf(line[1]);
+                // trick below
+                num -= this.testFile.get(line[0]).size();
+                docNum.put(line[0], num);
+                docTotalNum += num;
+                s = reader.readLine();
             }
-        }else {
+        } else {
             logger.info("waitForCompletion false!!!");
             return;
         }
@@ -150,8 +167,14 @@ public class NaiveBayes {
             double prior = (entry.getValue() + 1) /
                 (double) (docTotalNum + docNum.size());
             this.prior.put(entry.getKey(), Math.log(prior));
+            fs.delete(new Path("aaa"), true);
+            FSDataOutputStream out = fs.create(new Path("aaa"));
+            OutputStreamWriter osw = new OutputStreamWriter(out);
+            BufferedWriter writer = new BufferedWriter(osw);
+            writer.write(entry.getKey() + "\t" + entry.getValue() +
+                "\t" + this.classes.get(entry.getKey()).size());
+            writer.close();
         }
-        // TODO how to distinguish test file from train file
     }
 
     private void startMRJob(String[] args) throws Exception {

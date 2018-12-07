@@ -31,7 +31,7 @@ public class MyFileInputFormat extends FileInputFormat<Text, IntWritable> {
             FileSplit split = (FileSplit) inputSplit;
             Configuration conf = context.getConfiguration();
             this.filePath = split.getPath();
-            System.err.println(filePath);
+            //System.err.println(filePath);
         }
 
         public boolean nextKeyValue() throws IOException, InterruptedException {

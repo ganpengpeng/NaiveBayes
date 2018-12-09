@@ -33,6 +33,11 @@ public class NaiveBayes {
     // Map<class, Map<word, number>>: the number of a word in a specific class
     Map<String, Map<String, Integer>> wordsNumByClass;
 
+    /**
+     * default constructor
+     *
+     * @param conf the conf from main function
+     */
     public NaiveBayes(Configuration conf) {
         /*
          *  constructor for a new classifier.
@@ -46,10 +51,15 @@ public class NaiveBayes {
         this.wordsNumByClass = new HashMap<>();
     }
 
+    /**
+     * @param conf       config for a file system.
+     * @param resultFile the file which store the classifier
+     * @throws Exception exception from ObjectInputStream.readObject
+     */
     public NaiveBayes(Configuration conf, String resultFile) throws Exception {
         /*
-         *  constructor for a exist classifier in a file.
-         *  this constructor for load a classifier which
+         *  constructor from a exist classifier in a file.
+         *  this constructor is used to load a classifier which
          *  was serialized to a file before.
          *  conf: config for a file system.
          *  resultDir: path of the classifier.
@@ -68,6 +78,11 @@ public class NaiveBayes {
         is.close();
     }
 
+    /**
+     * @param args args[0]: dataset directory
+     *             args[1]: output directory for job result
+     * @throws Exception
+     */
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
             System.out.println("Usage: NaiveBayes \"data dir\" \"output dir\"");
@@ -78,14 +93,22 @@ public class NaiveBayes {
             conf.set("fs.defaultFS", "hdfs://localhost:8020");
         }
         NaiveBayes nb = new NaiveBayes(conf);
+        // auto split data to train data and test data
         nb.splitDataSet(new Path(args[0]));
+        // submit document count job and calculate prior probability
         nb.calcPrior(args);
-        System.err.println("-----finish-----");
+        // start word count job for each class
         nb.startMRJob(args);
+        // train classifier
         nb.trainAllClasses(new Path(args[1]));
+        // serialize the classifier to hdfs
         nb.save(args);
     }
 
+    /**
+     * @param path dataset path
+     * @throws IOException exception from FileSystem.listStatus
+     */
     private void splitDataSet(Path path) throws IOException {
         /*
          *  split data set into train data and test data.
@@ -110,6 +133,12 @@ public class NaiveBayes {
         }
     }
 
+    /**
+     * @param args args in main function
+     * @throws IOException            just throw
+     * @throws InterruptedException   just throw
+     * @throws ClassNotFoundException just throw
+     */
     private void calcPrior(String[] args) throws IOException,
         InterruptedException, ClassNotFoundException {
         /*
@@ -117,10 +146,15 @@ public class NaiveBayes {
          *  I use laplace smoothing to deal with zero probability.
          */
         Configuration conf = this.conf;
+        /*
+         *  this argument is set to let fileinputformat to iterate recursively
+         *  to each document.
+         */
         conf.set("mapreduce.input.fileinputformat.input.dir.recursive", "true");
         Path output = new Path("filecount");
         FileSystem fs = FileSystem.get(conf);
         fs.delete(output, true);
+        // document count job
         Job job = Job.getInstance(this.conf, "filecount");
         job.setJarByClass(NaiveBayes.class);
         job.setMapperClass(WordCount.TokenizerMapper.class);
@@ -163,23 +197,24 @@ public class NaiveBayes {
             logger.info("waitForCompletion false!!!");
             return;
         }
+        // calculate prior probability for each class
         for (Map.Entry<String, Integer> entry : docNum.entrySet()) {
             double prior = (entry.getValue() + 1) /
                 (double) (docTotalNum + docNum.size());
             this.prior.put(entry.getKey(), Math.log(prior));
-            fs.delete(new Path("aaa"), true);
-            FSDataOutputStream out = fs.create(new Path("aaa"));
-            OutputStreamWriter osw = new OutputStreamWriter(out);
-            BufferedWriter writer = new BufferedWriter(osw);
-            writer.write(entry.getKey() + "\t" + entry.getValue() +
-                "\t" + this.classes.get(entry.getKey()).size());
-            writer.close();
         }
     }
 
+    /**
+     * start word count for each class
+     *
+     * @param args args in main fucntion
+     * @throws Exception just throw
+     */
     private void startMRJob(String[] args) throws Exception {
         FileSystem fs = FileSystem.get(this.conf);
         fs.delete(new Path(args[1]), true);
+        // one class, one word count job
         for (String className : this.classes.keySet()) {
             Job job = Job.getInstance(this.conf, className);
             job.setJarByClass(NaiveBayes.class);
@@ -196,6 +231,12 @@ public class NaiveBayes {
         }
     }
 
+    /**
+     * train class according to word count job result
+     *
+     * @param output word count output path
+     * @throws Exception
+     */
     private void trainAllClasses(Path output) throws Exception {
         FileSystem fs = FileSystem.get(this.conf);
         FileStatus[] fileStatuses = fs.listStatus(output);
@@ -206,6 +247,12 @@ public class NaiveBayes {
         }
     }
 
+    /**
+     * train the specific class
+     *
+     * @param jobResultByClass job output path by specific class
+     * @throws Exception
+     */
     private void train(Path jobResultByClass) throws Exception {
         Map<String, Integer> wordsNumMap = new HashMap<>();
         int totalNum = 0;
@@ -235,6 +282,13 @@ public class NaiveBayes {
         this.wordsNumByClass.put(jobResultByClass.getName(), wordsNumMap);
     }
 
+    /**
+     * this is the function to classify a document
+     *
+     * @param doc the document to classify
+     * @return result class
+     * @throws Exception
+     */
     String classify(Path doc) throws Exception {
         FileSystem fs = FileSystem.get(this.conf);
         FSDataInputStream is = fs.open(doc);
@@ -248,6 +302,7 @@ public class NaiveBayes {
                 Integer wordCount = entry.getValue().get(word);
                 if (wordCount == null)
                     wordCount = 0;
+                // probability of a class
                 double sim = (wordCount + 1) / (double)
                     (this.totalWordsNumByClass.get(entry.getKey()) +
                         entry.getValue().size());
@@ -259,6 +314,7 @@ public class NaiveBayes {
             new ArrayList<>(similarity.entrySet());
         String result = list.get(0).getKey();
         Double sim = list.get(0).getValue();
+        // get the maximum probability
         for (int i = 1; i < list.size(); i++) {
             Double aSim = list.get(i).getValue();
             if (aSim > sim) {
@@ -269,6 +325,12 @@ public class NaiveBayes {
         return result;
     }
 
+    /**
+     * serialize the classifier to hdfs file.
+     *
+     * @param args args in main function
+     * @throws Exception
+     */
     private void save(String[] args) throws Exception {
         FileSystem fs = FileSystem.get(this.conf);
         FSDataOutputStream out = fs.create(

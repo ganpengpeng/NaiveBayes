@@ -10,6 +10,13 @@ public class NaiveBayesTest {
     private Map<String, Integer[][]> classMatrix;
     private int testDocsNum;
 
+    /**
+     * constructor fot NaiveBayesTest,
+     * the classifier will be loaded inside constructor
+     * @param conf conf for job
+     * @param resultFile the file stored the classifier
+     * @throws Exception
+     */
     public NaiveBayesTest(Configuration conf, String resultFile) throws Exception {
         this.nb = new NaiveBayes(conf, resultFile);
         this.classMatrix = new HashMap<>();
@@ -30,16 +37,23 @@ public class NaiveBayesTest {
         }
         NaiveBayesTest nbt = new NaiveBayesTest(conf, args[1] + "/Classifier");
         nbt.test(args[0]);
+        // macroAverage result
         for (double v : nbt.macroAverage()) {
             System.out.println(v);
         }
         System.out.println();
+        // microAverage result
         for (double v : nbt.microAverage()) {
             System.out.println(v);
         }
         System.out.println();
     }
 
+    /**
+     * test each file in NaiveBayes.testFile
+     * @param dataset dataset
+     * @throws Exception
+     */
     private void test(String dataset) throws Exception {
         for (Map.Entry<String, ArrayList<String>> entry : this.nb.testFile.entrySet()) {
             String trueClass = entry.getKey();
@@ -52,13 +66,15 @@ public class NaiveBayesTest {
                 } else {
                     matrix[0][1] += 1;
                 }
-//                System.out.println(docPath.toString() + ": " + resultClass);
             }
             this.testDocsNum += entry.getValue().size();
         }
         fillMatrix();
     }
 
+    /**
+     * fill class matrix according to information from train result
+     */
     private void fillMatrix() {
         for (Map.Entry<String, Integer[][]> entry : classMatrix.entrySet()) {
             ArrayList<String> testFile = this.nb.testFile.get(entry.getKey());
@@ -74,6 +90,10 @@ public class NaiveBayesTest {
         }
     }
 
+    /**
+     * calculate evaluation by macro average
+     * @return [precision, recall, f1]
+     */
     private double[] macroAverage() {
         double precision = 0, recall = 0;
         for (Integer[][] matrix : this.classMatrix.values()) {
@@ -85,10 +105,13 @@ public class NaiveBayesTest {
         precision /= this.classMatrix.size();
         recall /= this.classMatrix.size();
         double f1 = 2 * precision * recall / (precision + recall);
-        System.out.println(precision + ", " + recall + ", " + f1);
         return new double[]{precision, recall, f1};
     }
 
+    /**
+     * calculate evaluation by micro average
+     * @return [precision, recall, f1]
+     */
     private double[] microAverage() {
         Integer[][] matrix = {{0, 0}, {0, 0}};
         for (Integer[][] value : this.classMatrix.values()) {
@@ -102,7 +125,6 @@ public class NaiveBayesTest {
         double precision = matrix[0][0] / (double) (matrix[0][0] + matrix[0][1]);
         double recall = matrix[0][0] / (double) (matrix[0][0] + matrix[1][0]);
         double f1 = 2 * precision * recall / (precision + recall);
-        System.out.println(precision + ", " + recall + ", " + f1);
         return new double[]{precision, recall, f1};
     }
 }
